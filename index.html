@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lepsze JBZD</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #000;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 30px;
+    }
+
+    .image-container {
+      background: #111;
+      padding: 15px;
+      margin: 30px auto;
+      box-shadow: 0 2px 8px rgba(255,255,255,0.05);
+      border-radius: 8px;
+      max-width: 90%;
+      width: 600px;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    h3 {
+      margin: 10px 0;
+      font-size: 1.1rem;
+    }
+
+    .description {
+      font-size: 0.95rem;
+      color: #ccc;
+      margin-bottom: 8px;
+    }
+
+    #loadMoreBtn {
+      margin: 40px auto;
+      padding: 12px 24px;
+      font-size: 1rem;
+      background-color: #fff;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    #loadMoreBtn:hover {
+      background-color: #ccc;
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      .image-container {
+        width: 95%;
+        padding: 10px;
+      }
+
+      h3 {
+        font-size: 1rem;
+      }
+
+      #loadMoreBtn {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      #loadMoreBtn {
+        width: 90%;
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Lepsze JBZD</h1>
+  <div id="images"></div>
+
+  <button id="loadMoreBtn">Załaduj więcej</button>
+
+  <script>
+    let currentPage = 1;
+
+    async function loadImagesFromUrl(targetUrl) {
+      try {
+        const proxyUrl = "https://corsproxy.io/?";
+        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+        const htmlText = await response.text();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, "text/html");
+
+        const imgElements = doc.querySelectorAll("img");
+        const container = document.getElementById("images");
+
+        imgElements.forEach(img => {
+          const src = img.getAttribute("src") || img.getAttribute("data-src");
+          const alt = img.getAttribute("alt") || "Bez tytułu";
+
+          if (src && !src.includes("thumb") && !src.endsWith(".gif")) {
+            const tempImg = new Image();
+            tempImg.src = src;
+
+            tempImg.onload = () => {
+              if (tempImg.width > 500) {
+                const wrapper = document.createElement("div");
+                wrapper.className = "image-container";
+
+                // Szukamy nadrzędnego artykułu
+                const article = img.closest("article");
+
+                // Szukamy opisu (jeśli istnieje)
+                let articleDesc = "";
+                if (article) {
+                  const descElem = article.querySelector(".article-description, .description, p, span");
+                  if (descElem) {
+                    articleDesc = descElem.textContent.trim();
+                  }
+                }
+
+                // Dodaj opis
+                if (articleDesc) {
+                  const description = document.createElement("p");
+                  description.className = "description";
+                  description.textContent = articleDesc;
+                  wrapper.appendChild(description);
+                }
+
+                // Dodaj tytuł
+                const titleElem = document.createElement("h3");
+                titleElem.textContent = alt;
+
+                // Dodaj obrazek
+                const finalImg = document.createElement("img");
+                finalImg.src = src;
+
+                wrapper.appendChild(titleElem);
+                wrapper.appendChild(finalImg);
+                container.appendChild(wrapper);
+              }
+            };
+
+            tempImg.onerror = () => {
+              console.warn("Nie udało się załadować obrazka:", src);
+            };
+          }
+        });
+      } catch (error) {
+        console.error("Błąd pobierania:", error);
+        document.getElementById("images").textContent = "Nie udało się załadować obrazków.";
+      }
+    }
+
+    // Pierwsze ładowanie
+    loadImagesFromUrl("https://jbzd.pl/");
+
+    // Obsługa przycisku "Załaduj więcej"
+    document.getElementById("loadMoreBtn").addEventListener("click", () => {
+      currentPage++;
+      const nextUrl = `https://jbzd.com.pl/str/${currentPage}`;
+      loadImagesFromUrl(nextUrl);
+    });
+  </script>
+</body>
+</html>
