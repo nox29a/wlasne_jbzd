@@ -3,257 +3,393 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lepsze Memy</title>
+<title>MemeFeed</title>
 
 <style>
 
 body{
-background:#0b0b0b;
-color:white;
-font-family:Arial;
 margin:0;
-padding:0;
-text-align:center;
+background:#000;
+color:#fff;
+font-family:Arial;
+overflow-x:hidden;
 }
 
-h1{
-margin:20px 0;
+#feed{
+max-width:720px;
+margin:auto;
 }
 
-.controls{
-margin-bottom:20px;
+.meme{
+position:relative;
+display:flex;
+align-items:center;
+justify-content:center;
+min-height:100vh;
+border-bottom:1px solid #111;
+scroll-snap-align:start;
 }
 
-button{
-padding:10px 16px;
-margin:6px;
-border-radius:8px;
-border:none;
-background:#222;
-color:white;
+.meme img{
+max-width:100%;
+max-height:90vh;
+object-fit:contain;
+}
+
+.meme-controls{
+position:absolute;
+right:14px;
+top:50%;
+transform:translateY(-50%);
+display:flex;
+flex-direction:column;
+gap:8px;
+z-index:2;
+}
+
+.meme-controls button{
+border:1px solid #333;
+background:rgba(20,20,20,0.9);
+color:#fff;
+padding:8px 12px;
+border-radius:10px;
 cursor:pointer;
 font-size:14px;
 }
 
-button:hover{
-background:#444;
+.meme-controls button:hover{
+background:rgba(40,40,40,0.95);
 }
 
-#images{
-column-count:4;
-column-gap:10px;
-padding:10px;
+#imageModal{
+position:fixed;
+inset:0;
+display:none;
+align-items:center;
+justify-content:center;
+background:rgba(0,0,0,0.92);
+z-index:999;
+padding:20px;
+box-sizing:border-box;
 }
 
-@media(max-width:1200px){
-#images{column-count:3;}
+#imageModal.open{
+display:flex;
 }
 
-@media(max-width:800px){
-#images{column-count:2;}
-}
-
-@media(max-width:500px){
-#images{column-count:1;}
-}
-
-.image-box{
-break-inside:avoid;
-margin-bottom:10px;
-border-radius:10px;
-overflow:hidden;
-background:#111;
-}
-
-.image-box img{
-width:100%;
-display:block;
-transition:transform .25s;
-}
-
-.image-box img:hover{
-transform:scale(1.05);
+#imageModal img{
+max-width:100%;
+max-height:100%;
+object-fit:contain;
 }
 
 .loader{
-padding:40px;
-font-size:18px;
+text-align:center;
+padding:30px;
 color:#888;
+}
+
+@media(max-width:700px){
+
+body{
+scroll-snap-type:y mandatory;
+}
+
+.meme{
+height:100vh;
+}
+
+.meme-controls{
+right:10px;
+bottom:10px;
+top:auto;
+transform:none;
+flex-direction:row;
+}
+
+.meme-controls button{
+padding:7px 10px;
+font-size:13px;
+}
+
 }
 
 </style>
 </head>
+
 <body>
 
-<h1>Lepsze Memy</h1>
+<div id="feed"></div>
+<div class="loader" id="loader">ładowanie memów...</div>
 
-<div class="controls">
-
-<button onclick="switchSource('jbzd')">JBZD</button>
-<button onclick="switchSource('memy')">MEMY.PL</button>
-<button onclick="switchSource('obrazkowo')">OBRAZKOWO</button>
-<button onclick="switchSource('kwejk')">KWEJK</button>
-
-</div>
-
-<div id="images"></div>
-
-<div class="loader" id="loader">
-Ładowanie memów...
+<div id="imageModal" aria-hidden="true">
+<img id="modalImage" alt="Powiększony obrazek">
 </div>
 
 <script>
 
-let currentPage = 1
-let currentSource = "jbzd"
-let loading = false
+const proxyBuilders=[
+url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+url=>`https://corsproxy.io/?${encodeURIComponent(url)}`,
+url=>`https://cors.isomorphic-git.org/${encodeURIComponent(url)}`
+]
 
-const proxy = "https://api.allorigins.win/raw?url="
+async function fetchPageHTML(url){
+let lastError=null
 
-const loadedImages = new Set()
-
-function switchSource(source){
-
-currentSource = source
-currentPage = 1
-loadedImages.clear()
-
-document.getElementById("images").innerHTML=""
-
-loadImages()
-
-}
-
-function getUrl(){
-
-if(currentSource==="jbzd"){
-return currentPage===1
-? "https://jbzd.pl/"
-: `https://jbzd.pl/str/${currentPage}`
-}
-
-if(currentSource==="memy"){
-return `https://memy.pl/?page=${currentPage}`
-}
-
-if(currentSource==="obrazkowo"){
-return `https://obrazkowo.pl/best?page=${currentPage}`
-}
-
-if(currentSource==="kwejk"){
-return currentPage===1
-? "https://kwejk.pl/"
-: `https://kwejk.pl/strona/${currentPage}`
-}
-
-}
-
-function getBase(){
-
-if(currentSource==="memy") return "https://memy.pl"
-if(currentSource==="obrazkowo") return "https://obrazkowo.pl"
-if(currentSource==="kwejk") return "https://kwejk.pl"
-
-return "https://jbzd.pl"
-
-}
-
-async function loadImages(){
-
-if(loading) return
-loading = true
-
-document.getElementById("loader").style.display="block"
-
+for(const buildProxyURL of proxyBuilders){
 try{
+const proxiedURL=buildProxyURL(url)
+const res=await fetch(proxiedURL,{cache:"no-store"})
 
-const url = getUrl() + "?t=" + Date.now()
+if(!res.ok){
+throw new Error(`HTTP ${res.status}`)
+}
 
-const res = await fetch(proxy + encodeURIComponent(url))
+const html=await res.text()
 
-const html = await res.text()
+if(!html || html.length<100){
+throw new Error("pusta odpowiedz")
+}
 
-const doc = new DOMParser().parseFromString(html,"text/html")
+return html
+}catch(err){
+lastError=err
+}
+}
 
-const imgs = doc.querySelectorAll("img")
+throw lastError || new Error("wszystkie proxy nie dzialaja")
+}
 
-const container = document.getElementById("images")
+const sources=[
 
-imgs.forEach(img=>{
+p=>p===1
+?"https://jbzd.pl/"
+:`https://jbzd.pl/str/${p}`,
 
-let src =
-img.getAttribute("data-src") ||
-img.getAttribute("data-original") ||
-img.getAttribute("src")
+p=>p===1
+?"https://kwejk.pl/"
+:`https://kwejk.pl/strona/${p}`
 
-if(!src) return
+]
+
+let page=1
+let loading=false
+
+const loaded=new Set()
+const imageModal=document.getElementById("imageModal")
+const modalImage=document.getElementById("modalImage")
+
+function openModal(src){
+modalImage.src=src
+imageModal.classList.add("open")
+imageModal.setAttribute("aria-hidden","false")
+}
+
+function closeModal(){
+imageModal.classList.remove("open")
+imageModal.setAttribute("aria-hidden","true")
+modalImage.removeAttribute("src")
+}
+
+async function downloadImage(src){
+try{
+const res=await fetch(src)
+if(!res.ok) throw new Error("download failed")
+const blob=await res.blob()
+const blobUrl=URL.createObjectURL(blob)
+const a=document.createElement("a")
+a.href=blobUrl
+a.download=`meme-${Date.now()}.${(blob.type.split("/")[1]||"jpg").split(";")[0]}`
+document.body.appendChild(a)
+a.click()
+a.remove()
+setTimeout(()=>URL.revokeObjectURL(blobUrl),1000)
+}catch(e){
+const a=document.createElement("a")
+a.href=src
+a.target="_blank"
+a.rel="noopener"
+a.download=""
+document.body.appendChild(a)
+a.click()
+a.remove()
+}
+}
+
+function normalizeURL(src,base){
+
+if(!src) return null
 
 if(src.startsWith("//")){
-src = "https:" + src
+src="https:"+src
 }
 
 if(src.startsWith("/")){
-src = getBase() + src
+src=new URL(src,base).href
 }
 
-if(
+if(src.includes(" ")) return null
+
+return src
+}
+
+function isBad(src){
+
+return(
+
 src.includes("logo") ||
 src.includes("avatar") ||
+src.includes("icon") ||
+src.includes("sprite") ||
+src.includes("ads") ||
 src.includes("thumb") ||
-src.endsWith(".svg")
-) return
+src.endsWith(".svg") ||
+src.endsWith(".webp?") ||
+src.includes("pixel")
 
-if(loadedImages.has(src)) return
-
-loadedImages.add(src)
-
-const test = new Image()
-test.src = src
-
-test.onload = ()=>{
-
-if(test.width < 350) return
-
-const box = document.createElement("div")
-box.className="image-box"
-
-const image = document.createElement("img")
-image.src = src
-image.loading="lazy"
-
-box.appendChild(image)
-
-container.appendChild(box)
+)
 
 }
+
+function addImage(src){
+
+if(loaded.has(src)) return
+loaded.add(src)
+
+const test=new Image()
+
+test.onload=function(){
+
+if(test.width<500) return
+
+const feed=document.getElementById("feed")
+
+const div=document.createElement("div")
+div.className="meme"
+
+const img=document.createElement("img")
+img.loading="lazy"
+img.src=src
+
+const controls=document.createElement("div")
+controls.className="meme-controls"
+
+const zoomBtn=document.createElement("button")
+zoomBtn.type="button"
+zoomBtn.textContent="Powiększ"
+zoomBtn.addEventListener("click",()=>openModal(src))
+
+const downloadBtn=document.createElement("button")
+downloadBtn.type="button"
+downloadBtn.textContent="Pobierz"
+downloadBtn.addEventListener("click",()=>downloadImage(src))
+
+controls.appendChild(zoomBtn)
+controls.appendChild(downloadBtn)
+
+div.appendChild(img)
+div.appendChild(controls)
+
+feed.appendChild(div)
+
+}
+
+test.src=src
+
+}
+
+function extractImages(doc,url){
+
+const imgs=doc.querySelectorAll("img")
+
+imgs.forEach(img=>{
+
+let src=
+
+img.dataset.src ||
+img.dataset.original ||
+img.getAttribute("data-src") ||
+img.getAttribute("data-original") ||
+img.getAttribute("srcset") ||
+img.src
+
+if(src && src.includes(",")){
+src=src.split(",")[0]
+}
+
+src=normalizeURL(src,url)
+
+if(!src) return
+
+if(isBad(src)) return
+
+addImage(src)
 
 })
 
-currentPage++
+}
+
+async function loadSource(source){
+
+const url=source(page)
+
+try{
+
+const html=await fetchPageHTML(url)
+
+const doc=new DOMParser().parseFromString(html,"text/html")
+
+extractImages(doc,url)
 
 }catch(e){
-
-console.log("Błąd",e)
+console.log("błąd źródła",url,e?.message||e)
+}
 
 }
 
-loading = false
+async function loadMemes(){
+
+if(loading) return
+loading=true
+
+document.getElementById("loader").style.display="block"
+
+for(const s of sources){
+await loadSource(s)
+}
+
+page++
+
+loading=false
+
 document.getElementById("loader").style.display="none"
 
 }
 
-window.addEventListener("scroll",()=>{
+function preload(){
 
 if(
-window.innerHeight + window.scrollY
->= document.body.offsetHeight - 1200
+window.innerHeight+window.scrollY>
+document.body.offsetHeight-2000
 ){
-loadImages()
+loadMemes()
 }
 
+}
+
+imageModal.addEventListener("click",(e)=>{
+if(e.target===imageModal) closeModal()
 })
 
-loadImages()
+window.addEventListener("keydown",(e)=>{
+if(e.key==="Escape") closeModal()
+})
+
+window.addEventListener("scroll",preload)
+
+loadMemes()
+loadMemes()
 
 </script>
 
