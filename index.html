@@ -342,6 +342,21 @@ addImage(src)
 
 })
 
+const enclosures=doc.querySelectorAll("enclosure[url]")
+
+enclosures.forEach(node=>{
+const enclosureURL=normalizeURL(node.getAttribute("url"),url)
+if(!enclosureURL) return
+if(isBad(enclosureURL)) return
+addImage(enclosureURL)
+})
+
+}
+
+function parseFetchedDocument(raw){
+const trimmed=raw.trimStart()
+const type=trimmed.startsWith("<?xml") ? "text/xml" : "text/html"
+return new DOMParser().parseFromString(raw,type)
 }
 
 async function loadSource(source){
@@ -352,11 +367,24 @@ try{
 
 const html=await fetchPageHTML(url)
 
-const doc=new DOMParser().parseFromString(html,"text/html")
+const doc=parseFetchedDocument(html)
 
 extractImages(doc,url)
 
 }catch(e){
+if(url.includes("demotywatory.pl")){
+try{
+const rssURL="https://demotywatory.pl/rss"
+const rssHTML=await fetchPageHTML(rssURL)
+const rssDoc=parseFetchedDocument(rssHTML)
+extractImages(rssDoc,rssURL)
+return
+}catch(rssError){
+console.log("błąd źródła",url,e?.message||e,"| rss:",rssError?.message||rssError)
+return
+}
+}
+
 console.log("błąd źródła",url,e?.message||e)
 }
 
