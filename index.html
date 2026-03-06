@@ -104,8 +104,7 @@ font-size:13px;
 <script>
 
 const proxyBuilders=[
-url=>`https://corsproxy.io/?${url}`,
-url=>`https://cors.isomorphic-git.org/${url}`,
+url=>`/api/proxy?url=${encodeURIComponent(url)}`,
 url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
 url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 ]
@@ -257,7 +256,7 @@ function firstURLFromSrcset(srcset){
 if(!srcset) return null
 const firstCandidate=srcset.split(",")[0]
 if(!firstCandidate) return null
-return firstCandidate.trim().split(/\s+/)[0]
+return firstCandidate.trim().replace(/\s+\d+(\.\d+)?[wx]\s*$/i,"")
 }
 
 function addImage(src){
