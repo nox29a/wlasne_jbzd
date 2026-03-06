@@ -1,188 +1,261 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lepsze JBZD</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #000;
-      color: #fff;
-      text-align: center;
-      margin: 0;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lepsze Memy</title>
 
-    h1 {
-      font-size: 2.2rem;
-      margin-bottom: 30px;
-    }
+<style>
 
-    .image-container {
-      background: #111;
-      padding: 15px;
-      margin: 30px auto;
-      box-shadow: 0 2px 8px rgba(255,255,255,0.05);
-      border-radius: 8px;
-      max-width: 90%;
-      width: 600px;
-    }
+body{
+background:#0b0b0b;
+color:white;
+font-family:Arial;
+margin:0;
+padding:0;
+text-align:center;
+}
 
-    img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      margin: 0 auto;
-    }
+h1{
+margin:20px 0;
+}
 
-    h3 {
-      margin: 10px 0;
-      font-size: 1.1rem;
-    }
+.controls{
+margin-bottom:20px;
+}
 
-    .description {
-      font-size: 0.95rem;
-      color: #ccc;
-      margin-bottom: 8px;
-    }
+button{
+padding:10px 16px;
+margin:6px;
+border-radius:8px;
+border:none;
+background:#222;
+color:white;
+cursor:pointer;
+font-size:14px;
+}
 
-    #loadMoreBtn {
-      margin: 40px auto;
-      padding: 12px 24px;
-      font-size: 1rem;
-      background-color: #fff;
-      color: #000;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
+button:hover{
+background:#444;
+}
 
-    #loadMoreBtn:hover {
-      background-color: #ccc;
-    }
+#images{
+column-count:4;
+column-gap:10px;
+padding:10px;
+}
 
-    @media (max-width: 768px) {
-      h1 {
-        font-size: 1.8rem;
-      }
+@media(max-width:1200px){
+#images{column-count:3;}
+}
 
-      .image-container {
-        width: 95%;
-        padding: 10px;
-      }
+@media(max-width:800px){
+#images{column-count:2;}
+}
 
-      h3 {
-        font-size: 1rem;
-      }
+@media(max-width:500px){
+#images{column-count:1;}
+}
 
-      #loadMoreBtn {
-        padding: 10px 20px;
-        font-size: 0.95rem;
-      }
-    }
+.image-box{
+break-inside:avoid;
+margin-bottom:10px;
+border-radius:10px;
+overflow:hidden;
+background:#111;
+}
 
-    @media (max-width: 480px) {
-      h1 {
-        font-size: 1.5rem;
-      }
+.image-box img{
+width:100%;
+display:block;
+transition:transform .25s;
+}
 
-      #loadMoreBtn {
-        width: 90%;
-        padding: 12px;
-      }
-    }
-  </style>
+.image-box img:hover{
+transform:scale(1.05);
+}
+
+.loader{
+padding:40px;
+font-size:18px;
+color:#888;
+}
+
+</style>
 </head>
 <body>
-  <h1>Lepsze JBZD</h1>
-  <div id="images"></div>
 
-  <button id="loadMoreBtn">Załaduj więcej</button>
+<h1>Lepsze Memy</h1>
 
-  <script>
-    let currentPage = 1;
+<div class="controls">
 
-    async function loadImagesFromUrl(targetUrl) {
-      try {
-        const proxyUrl = "https://corsproxy.io/?";
-        const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-        const htmlText = await response.text();
+<button onclick="switchSource('jbzd')">JBZD</button>
+<button onclick="switchSource('memy')">MEMY.PL</button>
+<button onclick="switchSource('obrazkowo')">OBRAZKOWO</button>
+<button onclick="switchSource('kwejk')">KWEJK</button>
 
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlText, "text/html");
+</div>
 
-        const imgElements = doc.querySelectorAll("img");
-        const container = document.getElementById("images");
+<div id="images"></div>
 
-        imgElements.forEach(img => {
-          const src = img.getAttribute("src") || img.getAttribute("data-src");
-          const alt = img.getAttribute("alt") || "Bez tytułu";
+<div class="loader" id="loader">
+Ładowanie memów...
+</div>
 
-          if (src && !src.includes("thumb") && !src.endsWith(".gif")) {
-            const tempImg = new Image();
-            tempImg.src = src;
+<script>
 
-            tempImg.onload = () => {
-              if (tempImg.width > 500) {
-                const wrapper = document.createElement("div");
-                wrapper.className = "image-container";
+let currentPage = 1
+let currentSource = "jbzd"
+let loading = false
 
-                // Szukamy nadrzędnego artykułu
-                const article = img.closest("article");
+const proxy = "https://api.allorigins.win/raw?url="
 
-                // Szukamy opisu (jeśli istnieje)
-                let articleDesc = "";
-                if (article) {
-                  const descElem = article.querySelector(".article-description, .description, p, span");
-                  if (descElem) {
-                    articleDesc = descElem.textContent.trim();
-                  }
-                }
+const loadedImages = new Set()
 
-                // Dodaj opis
-                if (articleDesc) {
-                  const description = document.createElement("p");
-                  description.className = "description";
-                  description.textContent = articleDesc;
-                  wrapper.appendChild(description);
-                }
+function switchSource(source){
 
-                // Dodaj tytuł
-                const titleElem = document.createElement("h3");
-                titleElem.textContent = alt;
+currentSource = source
+currentPage = 1
+loadedImages.clear()
 
-                // Dodaj obrazek
-                const finalImg = document.createElement("img");
-                finalImg.src = src;
+document.getElementById("images").innerHTML=""
 
-                wrapper.appendChild(titleElem);
-                wrapper.appendChild(finalImg);
-                container.appendChild(wrapper);
-              }
-            };
+loadImages()
 
-            tempImg.onerror = () => {
-              console.warn("Nie udało się załadować obrazka:", src);
-            };
-          }
-        });
-      } catch (error) {
-        console.error("Błąd pobierania:", error);
-        document.getElementById("images").textContent = "Nie udało się załadować obrazków.";
-      }
-    }
+}
 
-    // Pierwsze ładowanie
-    loadImagesFromUrl("https://jbzd.pl/");
+function getUrl(){
 
-    // Obsługa przycisku "Załaduj więcej"
-    document.getElementById("loadMoreBtn").addEventListener("click", () => {
-      currentPage++;
-      const nextUrl = `https://jbzd.com.pl/str/${currentPage}`;
-      loadImagesFromUrl(nextUrl);
-    });
-  </script>
+if(currentSource==="jbzd"){
+return currentPage===1
+? "https://jbzd.pl/"
+: `https://jbzd.pl/str/${currentPage}`
+}
+
+if(currentSource==="memy"){
+return `https://memy.pl/?page=${currentPage}`
+}
+
+if(currentSource==="obrazkowo"){
+return `https://obrazkowo.pl/best?page=${currentPage}`
+}
+
+if(currentSource==="kwejk"){
+return currentPage===1
+? "https://kwejk.pl/"
+: `https://kwejk.pl/strona/${currentPage}`
+}
+
+}
+
+function getBase(){
+
+if(currentSource==="memy") return "https://memy.pl"
+if(currentSource==="obrazkowo") return "https://obrazkowo.pl"
+if(currentSource==="kwejk") return "https://kwejk.pl"
+
+return "https://jbzd.pl"
+
+}
+
+async function loadImages(){
+
+if(loading) return
+loading = true
+
+document.getElementById("loader").style.display="block"
+
+try{
+
+const url = getUrl() + "?t=" + Date.now()
+
+const res = await fetch(proxy + encodeURIComponent(url))
+
+const html = await res.text()
+
+const doc = new DOMParser().parseFromString(html,"text/html")
+
+const imgs = doc.querySelectorAll("img")
+
+const container = document.getElementById("images")
+
+imgs.forEach(img=>{
+
+let src =
+img.getAttribute("data-src") ||
+img.getAttribute("data-original") ||
+img.getAttribute("src")
+
+if(!src) return
+
+if(src.startsWith("//")){
+src = "https:" + src
+}
+
+if(src.startsWith("/")){
+src = getBase() + src
+}
+
+if(
+src.includes("logo") ||
+src.includes("avatar") ||
+src.includes("thumb") ||
+src.endsWith(".svg")
+) return
+
+if(loadedImages.has(src)) return
+
+loadedImages.add(src)
+
+const test = new Image()
+test.src = src
+
+test.onload = ()=>{
+
+if(test.width < 350) return
+
+const box = document.createElement("div")
+box.className="image-box"
+
+const image = document.createElement("img")
+image.src = src
+image.loading="lazy"
+
+box.appendChild(image)
+
+container.appendChild(box)
+
+}
+
+})
+
+currentPage++
+
+}catch(e){
+
+console.log("Błąd",e)
+
+}
+
+loading = false
+document.getElementById("loader").style.display="none"
+
+}
+
+window.addEventListener("scroll",()=>{
+
+if(
+window.innerHeight + window.scrollY
+>= document.body.offsetHeight - 1200
+){
+loadImages()
+}
+
+})
+
+loadImages()
+
+</script>
+
 </body>
 </html>
