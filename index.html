@@ -310,11 +310,13 @@ let src=
 
 img.dataset.src ||
 img.dataset.lazySrc ||
+img.dataset.srcset ||
 img.getAttribute("data-lazy-src") ||
 img.getAttribute("data-srcset") ||
 img.dataset.original ||
 img.getAttribute("data-src") ||
 img.getAttribute("data-original") ||
+img.getAttribute("src") ||
 img.getAttribute("srcset") ||
 img.src
 
