@@ -61,28 +61,6 @@ font-size:14px;
 background:rgba(40,40,40,0.95);
 }
 
-#imageModal{
-position:fixed;
-inset:0;
-display:none;
-align-items:center;
-justify-content:center;
-background:rgba(0,0,0,0.92);
-z-index:999;
-padding:20px;
-box-sizing:border-box;
-}
-
-#imageModal.open{
-display:flex;
-}
-
-#imageModal img{
-max-width:100%;
-max-height:100%;
-object-fit:contain;
-}
-
 .loader{
 text-align:center;
 padding:30px;
@@ -122,10 +100,6 @@ font-size:13px;
 <div id="feed"></div>
 <div class="loader" id="loader">ładowanie memów...</div>
 <div class="loader" id="runtimeWarning" style="display:none;"></div>
-
-<div id="imageModal" aria-hidden="true">
-<img id="modalImage" alt="Powiększony obrazek">
-</div>
 
 <script>
 
@@ -187,7 +161,19 @@ p=>p===1
 
 p=>p===1
 ?"https://kwejk.pl/"
-:`https://kwejk.pl/strona/${p}`
+:`https://kwejk.pl/strona/${p}`,
+
+p=>p===1
+?"https://memy.pl/"
+:`https://memy.pl/?page=${p}`,
+
+p=>p===1
+?"https://obrazkowo.pl/"
+:`https://obrazkowo.pl/best/${p}`,
+
+p=>p===1
+?"https://chamsko.pl/"
+:`https://chamsko.pl/page/${p}`
 
 ]
 
@@ -195,20 +181,6 @@ let page=1
 let loading=false
 
 const loaded=new Set()
-const imageModal=document.getElementById("imageModal")
-const modalImage=document.getElementById("modalImage")
-
-function openModal(src){
-modalImage.src=src
-imageModal.classList.add("open")
-imageModal.setAttribute("aria-hidden","false")
-}
-
-function closeModal(){
-imageModal.classList.remove("open")
-imageModal.setAttribute("aria-hidden","true")
-modalImage.removeAttribute("src")
-}
 
 async function downloadImage(src){
 try{
@@ -293,17 +265,11 @@ img.src=src
 const controls=document.createElement("div")
 controls.className="meme-controls"
 
-const zoomBtn=document.createElement("button")
-zoomBtn.type="button"
-zoomBtn.textContent="Powiększ"
-zoomBtn.addEventListener("click",()=>openModal(src))
-
 const downloadBtn=document.createElement("button")
 downloadBtn.type="button"
 downloadBtn.textContent="Pobierz"
 downloadBtn.addEventListener("click",()=>downloadImage(src))
 
-controls.appendChild(zoomBtn)
 controls.appendChild(downloadBtn)
 
 div.appendChild(img)
@@ -395,14 +361,6 @@ loadMemes()
 }
 
 }
-
-imageModal.addEventListener("click",(e)=>{
-if(e.target===imageModal) closeModal()
-})
-
-window.addEventListener("keydown",(e)=>{
-if(e.key==="Escape") closeModal()
-})
 
 window.addEventListener("scroll",preload)
 
