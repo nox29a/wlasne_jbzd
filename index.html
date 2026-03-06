@@ -172,7 +172,11 @@ p=>p===1
 
 p=>p===1
 ?"https://chamsko.pl/"
-:`https://chamsko.pl/page/${p}`
+:`https://chamsko.pl/page/${p}`,
+
+p=>p===1
+?"https://demotywatory.pl/"
+:`https://demotywatory.pl/page/${p}`
 
 ]
 
@@ -210,6 +214,11 @@ function normalizeURL(src,base){
 
 if(!src) return null
 src=src.trim()
+src=src.replace(/^['"]|['"]$/g,"")
+
+if(src.startsWith("/demot/")){
+src=`https://chamsko.pl${src}`
+}
 
 if(src.startsWith("//")){
 src="https:"+src
@@ -229,8 +238,7 @@ return null
 
 if(src.startsWith("file:")) return null
 if(!/^https?:\/\//i.test(src)) return null
-
-if(src.includes(" ")) return null
+src=encodeURI(src)
 
 return src
 }
