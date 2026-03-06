@@ -25,21 +25,37 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  try {
-    const upstream = await fetch(parsed.href, {
+  const fetchHTML = async (url) =>
+    fetch(url, {
       redirect: "follow",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "pl-PL,pl;q=0.9,en;q=0.8",
-        Referer: parsed.origin + "/",
+        Referer: new URL(url).origin + "/",
       },
     });
 
-    const body = await upstream.text();
+  try {
+    let upstream = await fetchHTML(parsed.href);
+    let body = await upstream.text();
+    let statusCode = upstream.status;
 
-    res.statusCode = upstream.status;
+    // Demotywatory often blocks server-side page fetches (403) from cloud hosts.
+    // In that case, serve RSS feed so frontend can still extract image URLs.
+    if (statusCode === 403 && parsed.hostname.includes("demotywatory.pl")) {
+      const rssURL = "https://demotywatory.pl/rss";
+      const rssResponse = await fetchHTML(rssURL);
+      const rssBody = await rssResponse.text();
+
+      if (rssResponse.ok && rssBody) {
+        body = rssBody;
+        statusCode = 200;
+      }
+    }
+
+    res.statusCode = statusCode;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
     res.end(body);
