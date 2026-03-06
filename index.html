@@ -121,6 +121,7 @@ font-size:13px;
 
 <div id="feed"></div>
 <div class="loader" id="loader">ładowanie memów...</div>
+<div class="loader" id="runtimeWarning" style="display:none;"></div>
 
 <div id="imageModal" aria-hidden="true">
 <img id="modalImage" alt="Powiększony obrazek">
@@ -129,18 +130,34 @@ font-size:13px;
 <script>
 
 const proxyBuilders=[
-url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-url=>`https://corsproxy.io/?${encodeURIComponent(url)}`,
-url=>`https://cors.isomorphic-git.org/${encodeURIComponent(url)}`
+url=>`https://corsproxy.io/?${url}`,
+url=>`https://cors.isomorphic-git.org/${url}`,
+url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
 ]
+
+const runtimeWarning=document.getElementById("runtimeWarning")
+
+if(location.protocol==="file:"){
+runtimeWarning.style.display="block"
+runtimeWarning.textContent="Uruchom ten plik przez lokalny serwer (np. python3 -m http.server 8080), bo tryb file:// często blokuje CORS i dalsze strony się nie ładują."
+}
 
 async function fetchPageHTML(url){
 let lastError=null
 
 for(const buildProxyURL of proxyBuilders){
+let timeoutId=null
 try{
 const proxiedURL=buildProxyURL(url)
-const res=await fetch(proxiedURL,{cache:"no-store"})
+const controller=new AbortController()
+timeoutId=setTimeout(()=>controller.abort(),9000)
+const res=await fetch(proxiedURL,{
+cache:"no-store",
+signal:controller.signal,
+headers:{Accept:"text/html,text/plain,*/*"}
+})
+clearTimeout(timeoutId)
 
 if(!res.ok){
 throw new Error(`HTTP ${res.status}`)
@@ -154,6 +171,7 @@ throw new Error("pusta odpowiedz")
 
 return html
 }catch(err){
+if(timeoutId) clearTimeout(timeoutId)
 lastError=err
 }
 }
