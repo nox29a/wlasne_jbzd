@@ -210,6 +210,7 @@ a.remove()
 function normalizeURL(src,base){
 
 if(!src) return null
+src=src.trim()
 
 if(src.startsWith("//")){
 src="https:"+src
@@ -218,6 +219,17 @@ src="https:"+src
 if(src.startsWith("/")){
 src=new URL(src,base).href
 }
+
+if(!/^https?:\/\//i.test(src)){
+try{
+src=new URL(src,base).href
+}catch(e){
+return null
+}
+}
+
+if(src.startsWith("file:")) return null
+if(!/^https?:\/\//i.test(src)) return null
 
 if(src.includes(" ")) return null
 
@@ -233,13 +245,19 @@ src.includes("avatar") ||
 src.includes("icon") ||
 src.includes("sprite") ||
 src.includes("ads") ||
-src.includes("thumb") ||
 src.endsWith(".svg") ||
 src.endsWith(".webp?") ||
 src.includes("pixel")
 
 )
 
+}
+
+function firstURLFromSrcset(srcset){
+if(!srcset) return null
+const firstCandidate=srcset.split(",")[0]
+if(!firstCandidate) return null
+return firstCandidate.trim().split(/\s+/)[0]
 }
 
 function addImage(src){
@@ -292,14 +310,17 @@ imgs.forEach(img=>{
 let src=
 
 img.dataset.src ||
+img.dataset.lazySrc ||
+img.getAttribute("data-lazy-src") ||
+img.getAttribute("data-srcset") ||
 img.dataset.original ||
 img.getAttribute("data-src") ||
 img.getAttribute("data-original") ||
 img.getAttribute("srcset") ||
 img.src
 
-if(src && src.includes(",")){
-src=src.split(",")[0]
+if(src && (src.includes(",") || /\s\d+(w|x)\b/.test(src))){
+src=firstURLFromSrcset(src)
 }
 
 src=normalizeURL(src,url)
