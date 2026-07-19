@@ -1,431 +1,148 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MemeFeed</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Własne memy</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #000;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+    }
 
-<style>
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 30px;
+    }
 
-body{
-margin:0;
-background:#000;
-color:#fff;
-font-family:Arial;
-overflow-x:hidden;
-}
+    .image-container {
+      background: #111;
+      padding: 15px;
+      margin: 30px auto;
+      box-shadow: 0 2px 8px rgba(255,255,255,0.05);
+      border-radius: 8px;
+      max-width: 90%;
+      width: 600px;
+    }
 
-#feed{
-max-width:720px;
-margin:auto;
-}
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
 
-.meme{
-position:relative;
-display:flex;
-align-items:center;
-justify-content:center;
-min-height:100vh;
-border-bottom:1px solid #111;
-scroll-snap-align:start;
-}
+    h3 {
+      margin: 10px 0;
+      font-size: 1.1rem;
+    }
 
-.meme img{
-max-width:100%;
-max-height:90vh;
-object-fit:contain;
-}
+    .description {
+      font-size: 0.95rem;
+      color: #ccc;
+      margin-bottom: 8px;
+    }
 
-.meme-controls{
-position:absolute;
-right:14px;
-top:50%;
-transform:translateY(-50%);
-display:flex;
-flex-direction:column;
-gap:8px;
-z-index:2;
-}
-
-.meme-controls button{
-border:1px solid #333;
-background:rgba(20,20,20,0.9);
-color:#fff;
-padding:8px 12px;
-border-radius:10px;
-cursor:pointer;
-font-size:14px;
-}
-
-.meme-controls button:hover{
-background:rgba(40,40,40,0.95);
-}
-
-.loader{
-text-align:center;
-padding:30px;
-color:#888;
-}
-
-@media(max-width:700px){
-
-body{
-scroll-snap-type:y mandatory;
-}
-
-.meme{
-height:100vh;
-}
-
-.meme-controls{
-right:10px;
-bottom:10px;
-top:auto;
-transform:none;
-flex-direction:row;
-}
-
-.meme-controls button{
-padding:7px 10px;
-font-size:13px;
-}
-
-}
-
-</style>
+    #loadMoreBtn {
+      margin: 40px auto;
+      padding: 12px 24px;
+      font-size: 1rem;
+      background-color: #fff;
+      color: #000;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
 </head>
-
 <body>
-
-<div id="feed"></div>
-<div class="loader" id="loader">ładowanie memów...</div>
-<div class="loader" id="runtimeWarning" style="display:none;"></div>
+  <h1>Lepsze JBZD</h1>
+  <div id="images"></div>
+  <button id="loadMoreBtn">Załaduj więcej</button>
 
 <script>
+let currentPage = 1;
 
-const proxyBuilders=[
-url=>`/api/proxy?url=${encodeURIComponent(url)}`,
-url=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-url=>`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-]
+async function loadImagesFromUrl(targetUrl) {
+  try {
+    const proxyUrl = "https://api.allorigins.win/raw?url=";
+    const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
+    const htmlText = await response.text();
 
-const runtimeWarning=document.getElementById("runtimeWarning")
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
 
-if(location.protocol==="file:"){
-runtimeWarning.style.display="block"
-runtimeWarning.textContent="Uruchom ten plik przez lokalny serwer (np. python3 -m http.server 8080), bo tryb file:// często blokuje CORS i dalsze strony się nie ładują."
+    const imgElements = doc.querySelectorAll("img");
+    const container = document.getElementById("images");
+
+    imgElements.forEach(img => {
+      let src = img.getAttribute("src") || img.getAttribute("data-src");
+      const alt = img.getAttribute("alt") || "Bez tytułu";
+
+      if (!src) return;
+
+      // jeśli względny URL → robimy pełny
+      if (src.startsWith("/")) {
+        src = "https://jbzd.pl" + src;
+      }
+
+      if (!src.includes("thumb") && !src.endsWith(".gif")) {
+        const tempImg = new Image();
+        tempImg.src = src;
+
+        tempImg.onload = () => {
+          if (tempImg.width > 500) {
+            const wrapper = document.createElement("div");
+            wrapper.className = "image-container";
+
+            const article = img.closest("article");
+
+            let articleDesc = "";
+            if (article) {
+              const descElem = article.querySelector("p");
+              if (descElem) {
+                articleDesc = descElem.textContent.trim();
+              }
+            }
+
+            if (articleDesc) {
+              const description = document.createElement("p");
+              description.className = "description";
+              description.textContent = articleDesc;
+              wrapper.appendChild(description);
+            }
+
+            const titleElem = document.createElement("h3");
+            titleElem.textContent = alt;
+
+            const finalImg = document.createElement("img");
+            finalImg.src = src;
+
+            wrapper.appendChild(titleElem);
+            wrapper.appendChild(finalImg);
+            container.appendChild(wrapper);
+          }
+        };
+      }
+    });
+  } catch (error) {
+    console.error("Błąd pobierania:", error);
+    document.getElementById("images").textContent =
+      "Nie udało się załadować obrazków.";
+  }
 }
 
-async function fetchPageHTML(url){
-let lastError=null
-
-for(const buildProxyURL of proxyBuilders){
-let timeoutId=null
-try{
-const proxiedURL=buildProxyURL(url)
-const controller=new AbortController()
-timeoutId=setTimeout(()=>controller.abort(),9000)
-const res=await fetch(proxiedURL,{
-cache:"no-store",
-signal:controller.signal,
-headers:{Accept:"text/html,text/plain,*/*"}
-})
-clearTimeout(timeoutId)
-
-if(!res.ok){
-throw new Error(`HTTP ${res.status}`)
-}
-
-const html=await res.text()
-
-if(!html || html.length<100){
-throw new Error("pusta odpowiedz")
-}
-
-return html
-}catch(err){
-if(timeoutId) clearTimeout(timeoutId)
-lastError=err
-}
-}
-
-throw lastError || new Error("wszystkie proxy nie dzialaja")
-}
-
-const sources=[
-
-p=>p===1
-?"https://jbzd.pl/"
-:`https://jbzd.pl/str/${p}`,
-
-p=>p===1
-?"https://kwejk.pl/"
-:`https://kwejk.pl/strona/${p}`,
-
-p=>p===1
-?"https://memy.pl/"
-:`https://memy.pl/?page=${p}`,
-
-p=>p===1
-?"https://obrazkowo.pl/"
-:`https://obrazkowo.pl/best/${p}`,
-
-p=>p===1
-?"https://chamsko.pl/"
-:`https://chamsko.pl/page/${p}`,
-
-p=>p===1
-?"https://demotywatory.pl/"
-:`https://demotywatory.pl/page/${p}`
-
-]
-
-let page=1
-let loading=false
-
-const loaded=new Set()
-
-async function downloadImage(src){
-try{
-const res=await fetch(src)
-if(!res.ok) throw new Error("download failed")
-const blob=await res.blob()
-const blobUrl=URL.createObjectURL(blob)
-const a=document.createElement("a")
-a.href=blobUrl
-a.download=`meme-${Date.now()}.${(blob.type.split("/")[1]||"jpg").split(";")[0]}`
-document.body.appendChild(a)
-a.click()
-a.remove()
-setTimeout(()=>URL.revokeObjectURL(blobUrl),1000)
-}catch(e){
-const a=document.createElement("a")
-a.href=src
-a.target="_blank"
-a.rel="noopener"
-a.download=""
-document.body.appendChild(a)
-a.click()
-a.remove()
-}
-}
-
-function normalizeURL(src,base){
-
-if(!src) return null
-src=src.trim()
-src=src.replace(/^['"]|['"]$/g,"")
-
-if(src.startsWith("/demot/")){
-src=`https://chamsko.pl${src}`
-}
-
-if(src.startsWith("//")){
-src="https:"+src
-}
-
-if(src.startsWith("/")){
-src=new URL(src,base).href
-}
-
-if(!/^https?:\/\//i.test(src)){
-try{
-src=new URL(src,base).href
-}catch(e){
-return null
-}
-}
-
-if(src.startsWith("file:")) return null
-if(!/^https?:\/\//i.test(src)) return null
-src=encodeURI(src)
-
-return src
-}
-
-function isBad(src){
-
-return(
-
-src.includes("logo") ||
-src.includes("avatar") ||
-src.includes("icon") ||
-src.includes("sprite") ||
-src.includes("ads") ||
-src.endsWith(".svg") ||
-src.endsWith(".webp?") ||
-src.includes("pixel")
-
-)
-
-}
-
-function firstURLFromSrcset(srcset){
-if(!srcset) return null
-const firstCandidate=srcset.split(",")[0]
-if(!firstCandidate) return null
-return firstCandidate.trim().replace(/\s+\d+(\.\d+)?[wx]\s*$/i,"")
-}
-
-function addImage(src){
-
-if(loaded.has(src)) return
-loaded.add(src)
-
-const test=new Image()
-
-test.onload=function(){
-
-if(test.width<500) return
-
-const feed=document.getElementById("feed")
-
-const div=document.createElement("div")
-div.className="meme"
-
-const img=document.createElement("img")
-img.loading="lazy"
-img.src=src
-
-const controls=document.createElement("div")
-controls.className="meme-controls"
-
-const downloadBtn=document.createElement("button")
-downloadBtn.type="button"
-downloadBtn.textContent="Pobierz"
-downloadBtn.addEventListener("click",()=>downloadImage(src))
-
-controls.appendChild(downloadBtn)
-
-div.appendChild(img)
-div.appendChild(controls)
-
-feed.appendChild(div)
-
-}
-
-test.src=src
-
-}
-
-function extractImages(doc,url){
-
-const imgs=doc.querySelectorAll("img")
-
-imgs.forEach(img=>{
-
-let src=
-
-img.dataset.src ||
-img.dataset.lazySrc ||
-img.dataset.srcset ||
-img.getAttribute("data-lazy-src") ||
-img.getAttribute("data-srcset") ||
-img.dataset.original ||
-img.getAttribute("data-src") ||
-img.getAttribute("data-original") ||
-img.getAttribute("src") ||
-img.getAttribute("srcset") ||
-img.src
-
-if(src && (src.includes(",") || /\s\d+(w|x)\b/.test(src))){
-src=firstURLFromSrcset(src)
-}
-
-src=normalizeURL(src,url)
-
-if(!src) return
-
-if(isBad(src)) return
-
-addImage(src)
-
-})
-
-const enclosures=doc.querySelectorAll("enclosure[url]")
-
-enclosures.forEach(node=>{
-const enclosureURL=normalizeURL(node.getAttribute("url"),url)
-if(!enclosureURL) return
-if(isBad(enclosureURL)) return
-addImage(enclosureURL)
-})
-
-}
-
-function parseFetchedDocument(raw){
-const trimmed=raw.trimStart()
-const type=trimmed.startsWith("<?xml") ? "text/xml" : "text/html"
-return new DOMParser().parseFromString(raw,type)
-}
-
-async function loadSource(source){
-
-const url=source(page)
-
-try{
-
-const html=await fetchPageHTML(url)
-
-const doc=parseFetchedDocument(html)
-
-extractImages(doc,url)
-
-}catch(e){
-if(url.includes("demotywatory.pl")){
-try{
-const rssURL="https://demotywatory.pl/rss"
-const rssHTML=await fetchPageHTML(rssURL)
-const rssDoc=parseFetchedDocument(rssHTML)
-extractImages(rssDoc,rssURL)
-return
-}catch(rssError){
-console.log("błąd źródła",url,e?.message||e,"| rss:",rssError?.message||rssError)
-return
-}
-}
-
-console.log("błąd źródła",url,e?.message||e)
-}
-
-}
-
-async function loadMemes(){
-
-if(loading) return
-loading=true
-
-document.getElementById("loader").style.display="block"
-
-for(const s of sources){
-await loadSource(s)
-}
-
-page++
-
-loading=false
-
-document.getElementById("loader").style.display="none"
-
-}
-
-function preload(){
-
-if(
-window.innerHeight+window.scrollY>
-document.body.offsetHeight-2000
-){
-loadMemes()
-}
-
-}
-
-window.addEventListener("scroll",preload)
-
-loadMemes()
-loadMemes()
-
+loadImagesFromUrl("https://jbzd.pl/");
+
+document.getElementById("loadMoreBtn").addEventListener("click", () => {
+  currentPage++;
+  const nextUrl = `https://jbzd.pl/str/${currentPage}`;
+  loadImagesFromUrl(nextUrl);
+});
 </script>
-
 </body>
 </html>
