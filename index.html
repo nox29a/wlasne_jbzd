@@ -10,63 +10,59 @@
 <style>
 
 body{
-    margin:0;
-    padding:20px;
-    background:#000;
-    color:white;
-    font-family:Arial,sans-serif;
-    text-align:center;
+margin:0;
+background:#000;
+color:#fff;
+font-family:Arial,sans-serif;
+text-align:center;
+padding:20px;
 }
 
 h1{
-    margin-bottom:30px;
+margin-bottom:30px;
 }
 
 #images{
-    max-width:700px;
-    margin:auto;
+max-width:700px;
+margin:auto;
 }
 
 .image-container{
 
-    background:#111;
-    padding:15px;
-    margin:25px auto;
-    border-radius:10px;
+background:#111;
+padding:15px;
+margin:25px auto;
+border-radius:10px;
 
 }
 
 .image-container img{
 
-    max-width:100%;
-    max-height:90vh;
-    display:block;
-    margin:auto;
-
-}
-
-h3{
-
-    margin:10px;
+max-width:100%;
+height:auto;
+display:block;
+margin:auto;
 
 }
 
 .description{
 
-    color:#ccc;
-    font-size:14px;
+color:#aaa;
+font-size:14px;
+margin-top:10px;
 
 }
 
-
 button{
 
-    padding:12px 25px;
-    margin:30px;
-    cursor:pointer;
-    border-radius:8px;
-    border:0;
-    font-size:16px;
+background:white;
+color:black;
+border:0;
+padding:12px 25px;
+font-size:16px;
+border-radius:8px;
+cursor:pointer;
+margin:30px;
 
 }
 
@@ -93,37 +89,65 @@ Załaduj więcej
 <script>
 
 
-let currentPage = 1;
+let currentPage=1;
 
-let loadedImages = new Set();
+let loading=false;
 
-
-
-const proxy =
-"https://api.codetabs.com/v1/proxy?quest=";
+let loaded=new Set();
 
 
 
-function fixUrl(src){
+const proxyList=[
+
+url =>
+"https://api.allorigins.win/raw?url="
++encodeURIComponent(url),
 
 
-    if(!src)
-        return null;
+url =>
+"https://api.codetabs.com/v1/proxy?quest="
++encodeURIComponent(url)
 
-
-    src=src.trim();
-
-
-    if(src.startsWith("//"))
-        src="https:"+src;
-
-
-    if(src.startsWith("/"))
-        src="https://jbzd.com.pl"+src;
+];
 
 
 
-    return src;
+
+
+async function getHTML(url){
+
+
+for(let proxy of proxyList){
+
+
+try{
+
+
+let r=await fetch(proxy(url),{
+cache:"no-store"
+});
+
+
+if(!r.ok)
+continue;
+
+
+let text=await r.text();
+
+
+if(text.length>100)
+return text;
+
+
+}catch(e){}
+
+
+
+}
+
+
+throw Error("Brak odpowiedzi proxy");
+
 
 }
 
@@ -131,89 +155,70 @@ function fixUrl(src){
 
 
 
-async function loadImagesFromUrl(url){
 
-
-try{
-
-
-const response = await fetch(
-    proxy + encodeURIComponent(url)
-);
-
-
-if(!response.ok)
-    throw Error(response.status);
-
-
-
-const html = await response.text();
-
-
-
-const doc =
-new DOMParser()
-.parseFromString(html,"text/html");
-
-
-
-let imgs =
-doc.querySelectorAll("img");
-
-
-
-imgs.forEach(img=>{
-
-
-let src =
-
-img.dataset.src ||
-
-img.dataset.lazy ||
-
-img.dataset.original ||
-
-img.getAttribute("data-src") ||
-
-img.getAttribute("src");
-
-
-
-src=fixUrl(src);
-
+function fixUrl(src,base){
 
 
 if(!src)
-    return;
+return null;
+
+
+src=src.trim();
+
+
+if(src.startsWith("//"))
+src="https:"+src;
+
+
+if(src.startsWith("/"))
+src=new URL(src,base).href;
+
+
+if(!src.startsWith("http"))
+return null;
+
+
+return src;
+
+
+}
 
 
 
-if(loadedImages.has(src))
-    return;
 
 
-
-if(
-
-src.includes("logo") ||
-src.includes("avatar") ||
-src.includes("icon") ||
-src.includes("emoji") ||
-src.includes("sprite")
-
-)
-return;
+function badImage(src){
 
 
+return(
 
-if(
+src.includes("logo")||
+src.includes("avatar")||
+src.includes("icon")||
+src.includes("emoji")||
+src.includes("sprite")||
+src.includes("ads")||
+src.includes("pixel")||
 src.endsWith(".svg")
-)
+
+);
+
+
+}
+
+
+
+
+
+
+function addImage(src){
+
+
+if(loaded.has(src))
 return;
 
 
-
-loadedImages.add(src);
+loaded.add(src);
 
 
 
@@ -224,99 +229,23 @@ let test=new Image();
 test.onload=function(){
 
 
-
-if(test.width < 400)
-    return;
-
-
-
-createCard(src,img);
+if(test.width<400)
+return;
 
 
 
-};
+let box=document.createElement("div");
+
+box.className="image-container";
 
 
 
-test.src=src;
+let img=document.createElement("img");
 
-
-
-});
-
-
-
-}
-
-catch(e){
-
-console.log(
-"Błąd:",
-e
-);
-
-}
-
-
-
-}
-
-
-
-
-
-function createCard(src,sourceImg){
-
-
-
-const box=
-document.createElement("div");
-
-
-box.className=
-"image-container";
-
-
-
-let article =
-sourceImg.closest("article");
-
-
-
-if(article){
-
-
-let title =
-article.querySelector("h1,h2,h3");
-
-
-if(title){
-
-
-let h=document.createElement("h3");
-
-h.textContent=
-title.textContent.trim();
-
-
-box.appendChild(h);
-
-
-}
-
-
-
-}
-
-
-
-let img =
-document.createElement("img");
-
+img.src=src;
 
 img.loading="lazy";
 
-img.src=src;
 
 
 box.appendChild(img);
@@ -329,34 +258,155 @@ document
 
 
 
+};
+
+
+
+test.src=src;
+
+
+
 }
 
 
 
 
 
-function loadPage(){
+
+
+function extractImages(html,url){
+
+
+let doc=
+new DOMParser()
+.parseFromString(html,"text/html");
+
+
+
+doc.querySelectorAll("img").forEach(img=>{
+
+
+let src=
+
+
+img.dataset.src ||
+
+img.dataset.lazySrc ||
+
+img.dataset.original ||
+
+img.getAttribute("data-src") ||
+
+img.getAttribute("data-original") ||
+
+img.getAttribute("src") ||
+
+img.getAttribute("srcset");
+
+
+
+if(!src)
+return;
+
+
+
+if(src.includes(",")){
+
+
+src=
+src.split(",")[0]
+.trim()
+.split(" ")[0];
+
+
+}
+
+
+
+src=fixUrl(src,url);
+
+
+
+if(!src)
+return;
+
+
+
+if(badImage(src))
+return;
+
+
+
+addImage(src);
+
+
+
+});
+
+
+
+}
+
+
+
+
+
+
+
+async function loadPage(){
+
+
+if(loading)
+return;
+
+
+loading=true;
+
 
 
 let url;
 
 
+
 if(currentPage===1)
 
-url="https://jbzd.com.pl/";
+url="https://jbzd.pl/";
 
 else
 
 url=
-`https://jbzd.com.pl/str/${currentPage}`;
+`https://jbzd.pl/str/${currentPage}`;
 
 
 
-loadImagesFromUrl(url);
 
+
+try{
+
+
+let html=await getHTML(url);
+
+
+extractImages(html,url);
+
+
+
+}catch(e){
+
+
+console.log(e);
 
 
 }
+
+
+
+loading=false;
+
+
+}
+
+
 
 
 
@@ -373,7 +423,6 @@ loadPage();
 
 
 };
-
 
 
 
