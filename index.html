@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -9,52 +10,51 @@
 <style>
 
 body{
-margin:0;
-background:#000;
-color:#fff;
-font-family:Arial,sans-serif;
+    margin:0;
+    background:#000;
+    color:#fff;
+    font-family:Arial,sans-serif;
 }
 
 #feed{
-max-width:720px;
-margin:auto;
+    max-width:720px;
+    margin:auto;
 }
 
 .meme{
-display:flex;
-justify-content:center;
-align-items:center;
-padding:20px;
-border-bottom:1px solid #222;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    border-bottom:1px solid #111;
+    padding:20px;
 }
 
 .meme img{
-max-width:100%;
-max-height:90vh;
-object-fit:contain;
+    max-width:100%;
+    max-height:90vh;
+    object-fit:contain;
 }
 
 .loader{
-text-align:center;
-padding:30px;
-color:#888;
+    text-align:center;
+    padding:30px;
+    color:#888;
 }
 
 button{
-display:block;
-margin:30px auto;
-padding:12px 25px;
-border:0;
-border-radius:8px;
-cursor:pointer;
-font-size:16px;
+    display:block;
+    margin:20px auto;
+    padding:12px 25px;
+    border-radius:8px;
+    border:0;
+    cursor:pointer;
+    font-size:16px;
 }
-
 
 </style>
 
 </head>
-
 
 <body>
 
@@ -63,7 +63,7 @@ font-size:16px;
 
 
 <div class="loader" id="loader">
-Ładowanie...
+Ładowanie memów...
 </div>
 
 
@@ -73,93 +73,43 @@ Załaduj więcej
 
 
 
-
 <script>
 
 
-let page=1;
+let page = 1;
 
-let busy=false;
+let loading = false;
 
-let loaded=new Set();
-
-
-
-const proxies=[
-
-
-url =>
-"https://api.allorigins.win/raw?url="
-+encodeURIComponent(url),
-
-
-url =>
-"https://api.codetabs.com/v1/proxy?quest="
-+encodeURIComponent(url),
-
-
-url =>
-"https://api.allorigins.win/get?url="
-+encodeURIComponent(url)
+let loaded = new Set();
 
 
 
-];
+const feed =
+document.getElementById("feed");
 
 
 
 
 
-async function fetchPage(url){
+async function fetchJBZD(url){
 
 
-for(let p of proxies){
+const response = await fetch(
+    "/api/proxy?url=" +
+    encodeURIComponent(url)
+);
 
 
-try{
+if(!response.ok){
 
-
-let r=await fetch(p(url),{
-cache:"no-store"
-});
-
-
-if(!r.ok)
-continue;
-
-
-let text=await r.text();
-
-
-
-try{
-
-
-let json=JSON.parse(text);
-
-
-if(json.contents)
-text=json.contents;
-
-
-}catch(e){}
-
-
-
-if(text.length>200)
-return text;
-
-
-
-}catch(e){}
-
-
+    throw new Error(
+        "HTTP " + response.status
+    );
 
 }
 
 
-
-throw Error("proxy error");
+return await response.text();
 
 
 }
@@ -168,34 +118,26 @@ throw Error("proxy error");
 
 
 
-
-function normalize(src,url){
+function absoluteUrl(src,base){
 
 
 if(!src)
-return null;
+    return null;
 
 
-src=src.trim();
-
-
-src=src.replace(/^['"]|['"]$/g,"");
-
+src = src.trim();
 
 
 if(src.startsWith("//"))
-src="https:"+src;
-
+    src = "https:" + src;
 
 
 if(src.startsWith("/"))
-src=new URL(src,url).href;
+    src = new URL(src,base).href;
 
 
-
-if(!/^https?:\/\//i.test(src))
-return null;
-
+if(!src.startsWith("http"))
+    return null;
 
 
 return src;
@@ -207,20 +149,18 @@ return src;
 
 
 
-
-
-function bad(src){
+function isBad(src){
 
 
 return (
 
-src.includes("logo")||
-src.includes("avatar")||
-src.includes("icon")||
-src.includes("emoji")||
-src.includes("sprite")||
-src.includes("ads")||
-src.includes("pixel")||
+src.includes("logo") ||
+src.includes("avatar") ||
+src.includes("icon") ||
+src.includes("emoji") ||
+src.includes("sprite") ||
+src.includes("favicon") ||
+src.includes("ads") ||
 src.endsWith(".svg")
 
 );
@@ -233,50 +173,50 @@ src.endsWith(".svg")
 
 
 
-function add(src){
+function addImage(src){
 
 
 if(loaded.has(src))
-return;
+    return;
 
 
 loaded.add(src);
 
 
 
-let test=new Image();
+let test = new Image();
 
 
 
-test.onload=function(){
+test.onload = function(){
 
 
-if(test.width<300)
-return;
+if(test.width < 300)
+    return;
 
 
 
-let div=document.createElement("div");
+let div =
+document.createElement("div");
+
 
 div.className="meme";
 
 
 
-let img=document.createElement("img");
+let img =
+document.createElement("img");
 
-img.loading="lazy";
 
 img.src=src;
 
+img.loading="lazy";
 
 
 div.appendChild(img);
 
 
-
-document
-.getElementById("feed")
-.appendChild(div);
+feed.appendChild(div);
 
 
 
@@ -295,21 +235,21 @@ test.src=src;
 
 
 
+function extractImages(html,pageUrl){
 
-function extract(html,url){
 
-
-let doc =
+const doc =
 new DOMParser()
 .parseFromString(html,"text/html");
 
 
 
-let found=new Set();
+let urls = new Set();
 
 
 
-doc.querySelectorAll("*").forEach(el=>{
+
+doc.querySelectorAll("img").forEach(img=>{
 
 
 [
@@ -318,62 +258,66 @@ doc.querySelectorAll("*").forEach(el=>{
 "data-original",
 "data-lazy-src",
 "srcset",
-"data-srcset",
-"content"
-].forEach(a=>{
+"data-srcset"
+
+].forEach(attr=>{
 
 
-let v=el.getAttribute(a);
-
-
-if(!v)
-return;
+let value =
+img.getAttribute(attr);
 
 
 
-if(v.includes("http")||v.startsWith("/")){
+if(!value)
+    return;
 
 
-if(v.includes(",")){
+
+if(value.includes(",")){
 
 
-v=v.split(",")[0];
-
-
-}
-
-
-found.add(v);
+value =
+value.split(",")[0]
+.trim()
+.split(" ")[0];
 
 
 }
+
+
+
+urls.add(value);
+
+
+
+});
 
 
 });
 
 
 
-});
 
 
+urls.forEach(src=>{
 
 
-found.forEach(src=>{
+src =
+absoluteUrl(src,pageUrl);
 
-
-src=normalize(src,url);
 
 
 if(!src)
-return;
-
-
-if(bad(src))
-return;
+    return;
 
 
 
-add(src);
+if(isBad(src))
+    return;
+
+
+
+addImage(src);
 
 
 
@@ -388,16 +332,20 @@ add(src);
 
 
 
+async function loadPage(){
 
 
-async function load(){
+if(loading)
+    return;
 
 
-if(busy)
-return;
+loading=true;
 
 
-busy=true;
+
+document
+.getElementById("loader")
+.style.display="block";
 
 
 
@@ -413,25 +361,37 @@ page===1
 try{
 
 
-let html=await fetchPage(url);
+const html =
+await fetchJBZD(url);
 
 
-extract(html,url);
+
+extractImages(html,url);
 
 
 
 }catch(e){
 
-console.log(e);
+console.error(
+"Błąd:",
+e
+);
 
 }
 
 
 
-busy=false;
+loading=false;
+
+
+document
+.getElementById("loader")
+.style.display="none";
 
 
 }
+
+
 
 
 
@@ -443,14 +403,14 @@ document
 
 page++;
 
-load();
+loadPage();
 
 };
 
 
 
 
-load();
+loadPage();
 
 
 
