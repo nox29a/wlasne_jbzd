@@ -10,62 +10,60 @@
 <style>
 
 body{
-    margin:0;
-    background:#000;
-    color:#fff;
-    font-family:Arial,sans-serif;
+margin:0;
+background:#000;
+color:#fff;
+font-family:Arial;
 }
 
 #feed{
-    max-width:720px;
-    margin:auto;
+max-width:720px;
+margin:auto;
 }
 
 .meme{
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    border-bottom:1px solid #111;
-    padding:20px;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+border-bottom:1px solid #111;
+padding:15px;
 }
 
 .meme img{
-    max-width:100%;
-    max-height:90vh;
-    object-fit:contain;
+max-width:100%;
+max-height:90vh;
+object-fit:contain;
 }
 
 .loader{
-    text-align:center;
-    padding:30px;
-    color:#888;
+text-align:center;
+padding:25px;
+color:#888;
 }
 
 button{
-    display:block;
-    margin:20px auto;
-    padding:12px 25px;
-    border-radius:8px;
-    border:0;
-    cursor:pointer;
-    font-size:16px;
+display:block;
+margin:20px auto;
+padding:12px 25px;
+border-radius:8px;
+border:0;
+cursor:pointer;
 }
 
 </style>
 
 </head>
 
+
 <body>
 
 
 <div id="feed"></div>
 
-
-<div class="loader" id="loader">
-Ładowanie memów...
+<div id="loader" class="loader">
+Ładowanie...
 </div>
-
 
 <button id="more">
 Załaduj więcej
@@ -73,43 +71,36 @@ Załaduj więcej
 
 
 
+
 <script>
 
 
-let page = 1;
+let page=1;
 
-let loading = false;
+let loading=false;
 
-let loaded = new Set();
+let loadedImages=new Set();
 
-
-
-const feed =
-document.getElementById("feed");
-
-
+let loadedPages=new Set();
 
 
 
 async function fetchJBZD(url){
 
 
-const response = await fetch(
-    "/api/proxy?url=" +
-    encodeURIComponent(url)
+console.log("Pobieram:",url);
+
+
+let r=await fetch(
+"/api/proxy?url="+encodeURIComponent(url)
 );
 
 
-if(!response.ok){
-
-    throw new Error(
-        "HTTP " + response.status
-    );
-
-}
+if(!r.ok)
+throw Error(r.status);
 
 
-return await response.text();
+return await r.text();
 
 
 }
@@ -118,26 +109,22 @@ return await response.text();
 
 
 
-function absoluteUrl(src,base){
+function fixUrl(src,base){
 
 
 if(!src)
-    return null;
+return null;
 
 
-src = src.trim();
+src=src.trim();
 
 
 if(src.startsWith("//"))
-    src = "https:" + src;
+src="https:"+src;
 
 
 if(src.startsWith("/"))
-    src = new URL(src,base).href;
-
-
-if(!src.startsWith("http"))
-    return null;
+src=new URL(src,base).href;
 
 
 return src;
@@ -149,18 +136,17 @@ return src;
 
 
 
-function isBad(src){
+function bad(src){
 
 
-return (
+return(
 
-src.includes("logo") ||
-src.includes("avatar") ||
-src.includes("icon") ||
-src.includes("emoji") ||
-src.includes("sprite") ||
-src.includes("favicon") ||
-src.includes("ads") ||
+src.includes("logo")||
+src.includes("avatar")||
+src.includes("icon")||
+src.includes("emoji")||
+src.includes("sprite")||
+src.includes("favicon")||
 src.endsWith(".svg")
 
 );
@@ -172,51 +158,48 @@ src.endsWith(".svg")
 
 
 
-
 function addImage(src){
 
 
-if(loaded.has(src))
-    return;
+if(loadedImages.has(src))
+return;
 
 
-loaded.add(src);
-
-
-
-let test = new Image();
+loadedImages.add(src);
 
 
 
-test.onload = function(){
-
-
-if(test.width < 300)
-    return;
+let test=new Image();
 
 
 
-let div =
-document.createElement("div");
+test.onload=function(){
 
 
-div.className="meme";
+if(test.width<300)
+return;
+
+
+let box=document.createElement("div");
+
+box.className="meme";
 
 
 
-let img =
-document.createElement("img");
-
+let img=document.createElement("img");
 
 img.src=src;
 
 img.loading="lazy";
 
 
-div.appendChild(img);
+
+box.appendChild(img);
 
 
-feed.appendChild(div);
+document
+.getElementById("feed")
+.appendChild(box);
 
 
 
@@ -227,7 +210,6 @@ feed.appendChild(div);
 test.src=src;
 
 
-
 }
 
 
@@ -235,17 +217,17 @@ test.src=src;
 
 
 
-function extractImages(html,pageUrl){
+
+function extractImages(html,url){
 
 
-const doc =
+let doc=
 new DOMParser()
 .parseFromString(html,"text/html");
 
 
 
-let urls = new Set();
-
+let found=new Set();
 
 
 
@@ -260,33 +242,26 @@ doc.querySelectorAll("img").forEach(img=>{
 "srcset",
 "data-srcset"
 
-].forEach(attr=>{
+].forEach(a=>{
 
 
-let value =
-img.getAttribute(attr);
+let v=img.getAttribute(a);
 
 
-
-if(!value)
-    return;
+if(!v)
+return;
 
 
 
-if(value.includes(",")){
+if(v.includes(","))
 
-
-value =
-value.split(",")[0]
+v=v.split(",")[0]
 .trim()
 .split(" ")[0];
 
 
-}
 
-
-
-urls.add(value);
+found.add(v);
 
 
 
@@ -297,23 +272,19 @@ urls.add(value);
 
 
 
+found.forEach(src=>{
 
 
-urls.forEach(src=>{
-
-
-src =
-absoluteUrl(src,pageUrl);
+src=fixUrl(src,url);
 
 
 
 if(!src)
-    return;
+return;
 
 
-
-if(isBad(src))
-    return;
+if(bad(src))
+return;
 
 
 
@@ -324,9 +295,7 @@ addImage(src);
 });
 
 
-
 }
-
 
 
 
@@ -336,33 +305,49 @@ async function loadPage(){
 
 
 if(loading)
-    return;
+return;
+
+
+if(loadedPages.has(page))
+return;
 
 
 loading=true;
 
 
-
-document
-.getElementById("loader")
-.style.display="block";
+loadedPages.add(page);
 
 
 
-let url =
-page===1
-?
-"https://jbzd.pl/"
-:
-`https://jbzd.pl/str/${page}`;
+let urls=[
 
+
+`https://jbzd.pl/str/${page}`,
+
+
+`https://jbzd.pl/?page=${page}`,
+
+
+`https://jbzd.pl/?p=${page}`
+
+
+];
+
+
+
+for(let url of urls){
 
 
 try{
 
 
-const html =
+let html=
 await fetchJBZD(url);
+
+
+
+let before=
+loadedImages.size;
 
 
 
@@ -370,12 +355,34 @@ extractImages(html,url);
 
 
 
+let after=
+loadedImages.size;
+
+
+
+console.log(
+url,
+"obrazy:",
+after-before
+);
+
+
+
+if(after>before)
+break;
+
+
+
 }catch(e){
 
-console.error(
-"Błąd:",
+console.log(
+"Błąd strony",
+url,
 e
 );
+
+}
+
 
 }
 
@@ -383,10 +390,6 @@ e
 
 loading=false;
 
-
-document
-.getElementById("loader")
-.style.display="none";
 
 
 }
@@ -401,9 +404,11 @@ document
 .getElementById("more")
 .onclick=function(){
 
+
 page++;
 
 loadPage();
+
 
 };
 
