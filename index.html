@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Lepsze JBZD</title>
+<title>JBZD Feed</title>
 
 <style>
 
@@ -14,57 +13,43 @@ margin:0;
 background:#000;
 color:#fff;
 font-family:Arial,sans-serif;
-text-align:center;
+}
+
+#feed{
+max-width:720px;
+margin:auto;
+}
+
+.meme{
+display:flex;
+justify-content:center;
+align-items:center;
 padding:20px;
+border-bottom:1px solid #222;
 }
 
-h1{
-margin-bottom:30px;
-}
-
-#images{
-max-width:700px;
-margin:auto;
-}
-
-.image-container{
-
-background:#111;
-padding:15px;
-margin:25px auto;
-border-radius:10px;
-
-}
-
-.image-container img{
-
+.meme img{
 max-width:100%;
-height:auto;
-display:block;
-margin:auto;
-
+max-height:90vh;
+object-fit:contain;
 }
 
-.description{
-
-color:#aaa;
-font-size:14px;
-margin-top:10px;
-
+.loader{
+text-align:center;
+padding:30px;
+color:#888;
 }
 
 button{
-
-background:white;
-color:black;
-border:0;
+display:block;
+margin:30px auto;
 padding:12px 25px;
-font-size:16px;
+border:0;
 border-radius:8px;
 cursor:pointer;
-margin:30px;
-
+font-size:16px;
 }
+
 
 </style>
 
@@ -74,30 +59,34 @@ margin:30px;
 <body>
 
 
-<h1>Lepsze JBZD</h1>
+<div id="feed"></div>
 
 
-<div id="images"></div>
+<div class="loader" id="loader">
+Ładowanie...
+</div>
 
 
-<button id="loadMoreBtn">
+<button id="more">
 Załaduj więcej
 </button>
+
 
 
 
 <script>
 
 
-let currentPage=1;
+let page=1;
 
-let loading=false;
+let busy=false;
 
 let loaded=new Set();
 
 
 
-const proxyList=[
+const proxies=[
+
 
 url =>
 "https://api.allorigins.win/raw?url="
@@ -106,7 +95,14 @@ url =>
 
 url =>
 "https://api.codetabs.com/v1/proxy?quest="
++encodeURIComponent(url),
+
+
+url =>
+"https://api.allorigins.win/get?url="
 +encodeURIComponent(url)
+
+
 
 ];
 
@@ -114,16 +110,16 @@ url =>
 
 
 
-async function getHTML(url){
+async function fetchPage(url){
 
 
-for(let proxy of proxyList){
+for(let p of proxies){
 
 
 try{
 
 
-let r=await fetch(proxy(url),{
+let r=await fetch(p(url),{
 cache:"no-store"
 });
 
@@ -135,8 +131,24 @@ continue;
 let text=await r.text();
 
 
-if(text.length>100)
+
+try{
+
+
+let json=JSON.parse(text);
+
+
+if(json.contents)
+text=json.contents;
+
+
+}catch(e){}
+
+
+
+if(text.length>200)
 return text;
+
 
 
 }catch(e){}
@@ -146,7 +158,8 @@ return text;
 }
 
 
-throw Error("Brak odpowiedzi proxy");
+
+throw Error("proxy error");
 
 
 }
@@ -156,7 +169,7 @@ throw Error("Brak odpowiedzi proxy");
 
 
 
-function fixUrl(src,base){
+function normalize(src,url){
 
 
 if(!src)
@@ -166,16 +179,23 @@ return null;
 src=src.trim();
 
 
+src=src.replace(/^['"]|['"]$/g,"");
+
+
+
 if(src.startsWith("//"))
 src="https:"+src;
 
 
+
 if(src.startsWith("/"))
-src=new URL(src,base).href;
+src=new URL(src,url).href;
 
 
-if(!src.startsWith("http"))
+
+if(!/^https?:\/\//i.test(src))
 return null;
+
 
 
 return src;
@@ -187,10 +207,12 @@ return src;
 
 
 
-function badImage(src){
 
 
-return(
+function bad(src){
+
+
+return (
 
 src.includes("logo")||
 src.includes("avatar")||
@@ -211,7 +233,7 @@ src.endsWith(".svg")
 
 
 
-function addImage(src){
+function add(src){
 
 
 if(loaded.has(src))
@@ -229,32 +251,32 @@ let test=new Image();
 test.onload=function(){
 
 
-if(test.width<400)
+if(test.width<300)
 return;
 
 
 
-let box=document.createElement("div");
+let div=document.createElement("div");
 
-box.className="image-container";
+div.className="meme";
 
 
 
 let img=document.createElement("img");
 
-img.src=src;
-
 img.loading="lazy";
 
+img.src=src;
 
 
-box.appendChild(img);
+
+div.appendChild(img);
 
 
 
 document
-.getElementById("images")
-.appendChild(box);
+.getElementById("feed")
+.appendChild(div);
 
 
 
@@ -274,70 +296,84 @@ test.src=src;
 
 
 
-function extractImages(html,url){
+function extract(html,url){
 
 
-let doc=
+let doc =
 new DOMParser()
 .parseFromString(html,"text/html");
 
 
 
-doc.querySelectorAll("img").forEach(img=>{
-
-
-let src=
-
-
-img.dataset.src ||
-
-img.dataset.lazySrc ||
-
-img.dataset.original ||
-
-img.getAttribute("data-src") ||
-
-img.getAttribute("data-original") ||
-
-img.getAttribute("src") ||
-
-img.getAttribute("srcset");
+let found=new Set();
 
 
 
-if(!src)
+doc.querySelectorAll("*").forEach(el=>{
+
+
+[
+"src",
+"data-src",
+"data-original",
+"data-lazy-src",
+"srcset",
+"data-srcset",
+"content"
+].forEach(a=>{
+
+
+let v=el.getAttribute(a);
+
+
+if(!v)
 return;
 
 
 
-if(src.includes(",")){
+if(v.includes("http")||v.startsWith("/")){
 
 
-src=
-src.split(",")[0]
-.trim()
-.split(" ")[0];
+if(v.includes(",")){
+
+
+v=v.split(",")[0];
 
 
 }
 
 
+found.add(v);
 
-src=fixUrl(src,url);
 
+}
+
+
+});
+
+
+
+});
+
+
+
+
+found.forEach(src=>{
+
+
+src=normalize(src,url);
 
 
 if(!src)
 return;
 
 
-
-if(badImage(src))
+if(bad(src))
 return;
 
 
 
-addImage(src);
+add(src);
 
 
 
@@ -353,81 +389,68 @@ addImage(src);
 
 
 
-async function loadPage(){
+
+async function load(){
 
 
-if(loading)
+if(busy)
 return;
 
 
-loading=true;
+busy=true;
 
 
 
-let url;
-
-
-
-if(currentPage===1)
-
-url="https://jbzd.pl/";
-
-else
-
-url=
-`https://jbzd.pl/str/${currentPage}`;
-
-
+let url =
+page===1
+?
+"https://jbzd.pl/"
+:
+`https://jbzd.pl/str/${page}`;
 
 
 
 try{
 
 
-let html=await getHTML(url);
+let html=await fetchPage(url);
 
 
-extractImages(html,url);
+extract(html,url);
 
 
 
 }catch(e){
 
-
 console.log(e);
 
-
 }
 
 
 
-loading=false;
+busy=false;
 
 
 }
-
-
 
 
 
 
 
 document
-.getElementById("loadMoreBtn")
+.getElementById("more")
 .onclick=function(){
 
+page++;
 
-currentPage++;
-
-loadPage();
-
+load();
 
 };
 
 
 
 
-loadPage();
+load();
 
 
 
